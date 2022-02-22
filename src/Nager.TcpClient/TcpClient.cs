@@ -112,6 +112,17 @@ namespace Nager.TcpClient
             }
         }
 
+        private void PrepareStream()
+        {
+            if (this._tcpClient == null)
+            {
+                this._logger.LogError($"{nameof(PrepareStream)} - TcpClient is null");
+                return;
+            }
+
+            this._stream = this._tcpClient.GetStream();
+        }
+
         /// <summary>
         /// Connect
         /// </summary>
@@ -144,8 +155,54 @@ namespace Nager.TcpClient
             this._logger.LogInformation("Connected");
             this.Connected?.Invoke();
 
-            this._stream = this._tcpClient.GetStream();
+            this.PrepareStream();
         }
+
+        /// <summary>
+        /// ConnectAsync
+        /// </summary>
+        /// <param name="ipAddressOrHostname"></param>
+        /// <param name="port"></param>
+        /// <returns></returns>
+        public async Task ConnectAsync(
+            string ipAddressOrHostname,
+            int port)
+        {
+            this._tcpClient = new System.Net.Sockets.TcpClient();
+
+            this._logger.LogDebug("Connecting");
+            await this._tcpClient.ConnectAsync(ipAddressOrHostname, port);
+            this._logger.LogInformation("Connected");
+            this.Connected?.Invoke();
+
+            this.PrepareStream();
+        }
+
+#if (NET6_0 || NET5_0)
+
+        /// <summary>
+        /// ConnectAsync
+        /// </summary>
+        /// <param name="ipAddressOrHostname"></param>
+        /// <param name="port"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        public async Task ConnectAsync(
+            string ipAddressOrHostname,
+            int port,
+            CancellationToken cancellationToken = default)
+        {
+            this._tcpClient = new System.Net.Sockets.TcpClient();
+
+            this._logger.LogDebug("Connecting");
+            await this._tcpClient.ConnectAsync(ipAddressOrHostname, port, cancellationToken);
+            this._logger.LogInformation("Connected");
+            this.Connected?.Invoke();
+
+            this.PrepareStream();
+        }
+
+#endif
 
         /// <summary>
         /// Disconnect
