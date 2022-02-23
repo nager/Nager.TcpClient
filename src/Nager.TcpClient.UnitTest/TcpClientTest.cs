@@ -125,8 +125,8 @@ namespace Nager.TcpClient.UnitTest
             tcpClient.Disconnect();
             tcpClient.DataReceived -= OnDataReceived;
 
-            Assert.IsTrue(isDataReceived);
-            Assert.IsTrue(isReceivedDataValid);
+            Assert.IsTrue(isDataReceived, "No data received");
+            Assert.IsTrue(isReceivedDataValid, "Invalid data received");
         }
 
         [TestMethod]
@@ -161,8 +161,8 @@ namespace Nager.TcpClient.UnitTest
             tcpClient.Disconnect();
             tcpClient.DataReceived -= OnDataReceived;
 
-            Assert.IsTrue(isDataReceived);
-            Assert.IsTrue(isReceivedDataValid);
+            Assert.IsTrue(isDataReceived, "No data received");
+            Assert.IsTrue(isReceivedDataValid, "Invalid data received");
         }
     }
 }
