@@ -16,7 +16,7 @@ namespace Nager.TcpClient.UnitTest
                 It.IsAny<EventId>(),
                 It.IsAny<It.IsAnyType>(),
                 It.IsAny<Exception>(),
-                (Func<It.IsAnyType, Exception, string>)It.IsAny<object>()))
+                (Func<It.IsAnyType, Exception?, string>)It.IsAny<object>()))
                 .Callback(new InvocationAction(invocation =>
                 {
                     var logLevel = (LogLevel)invocation.Arguments[0]; // The first two will always be whatever is specified in the setup above
