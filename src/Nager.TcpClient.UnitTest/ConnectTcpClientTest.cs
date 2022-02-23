@@ -39,7 +39,8 @@ namespace Nager.TcpClient.UnitTest
             var connectSuccessful = tcpClient.Connect(ipAddress, port, connectionTimeoutMilliseconds);
             sw.Stop();
 
-            Assert.IsTrue(sw.Elapsed.TotalMilliseconds > connectionTimeoutMilliseconds, $"Abort to early {sw.Elapsed.TotalMilliseconds}");
+            var allowedTolerance = 100; //100ms
+            Assert.IsTrue(sw.Elapsed.TotalMilliseconds > (connectionTimeoutMilliseconds - allowedTolerance), $"Abort to early {sw.Elapsed.TotalMilliseconds}");
             Assert.IsFalse(connectSuccessful, "Connection should not be possible");
             Assert.IsFalse(tcpClient.IsConnected);
         }
