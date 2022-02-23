@@ -17,14 +17,13 @@ namespace Nager.TcpClient
         private readonly CancellationTokenRegistration _streamCancellationTokenRegistration;
         private readonly Task _dataReceiverTask;
         private readonly TcpClientKeepAliveConfig? _keepAliveConfig;
+        private readonly object _lock = new object();
 
         private readonly byte[] _receiveBuffer;
 
         private System.Net.Sockets.TcpClient? _tcpClient;
         private Stream? _stream;
         private bool _isConnected;
-
-        private object _lock = new object();
 
         /// <summary>
         /// Is client connected
