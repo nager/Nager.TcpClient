@@ -108,11 +108,14 @@ namespace Nager.TcpClient
                     {
                         this._cancellationTokenSource.Cancel();
                     }
+
+                    this._cancellationTokenSource.Dispose();
                 }
 
-                this._cancellationTokenSource?.Dispose();
-
-                this._dataReceiverTask.Wait(50);
+                if (this._dataReceiverTask.Status == TaskStatus.Running)
+                {
+                    this._dataReceiverTask.Wait(50);
+                }
 
                 this._streamCancellationTokenRegistration.Dispose();
 
@@ -216,29 +219,48 @@ namespace Nager.TcpClient
                 return false;
             }
 
-            this._tcpClient = new System.Net.Sockets.TcpClient();
-
-            this._logger.LogDebug($"{nameof(Connect)} - Connecting");
-            IAsyncResult asyncResult = this._tcpClient.BeginConnect(ipAddressOrHostname, port, null, null);
-            var waitHandle = asyncResult.AsyncWaitHandle;
-
-            if (!asyncResult.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(connectionTimeoutInMilliseconds), exitContext: false))
+            try
             {
-                this._logger.LogError($"{nameof(Connect)} - Timeout");
+                this._tcpClient = new System.Net.Sockets.TcpClient();
 
-                this._tcpClient.Close();
+                this._logger.LogDebug($"{nameof(Connect)} - Connecting");
+                IAsyncResult asyncResult = this._tcpClient.BeginConnect(ipAddressOrHostname, port, null, null);
+                var waitHandle = asyncResult.AsyncWaitHandle;
+
+                if (!asyncResult.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(connectionTimeoutInMilliseconds), exitContext: false))
+                {
+                    this._logger.LogError($"{nameof(Connect)} - Timeout reached");
+
+                    /*
+                     * INFO
+                     * Do not include a dispose for the waitHandle here this will cause an exception
+                    */
+
+                    this._tcpClient.Close();
+                    this._tcpClient.Dispose();
+
+                    return false;
+                }
+
+                this._tcpClient.EndConnect(asyncResult);
+
                 waitHandle.Close();
+                waitHandle.Dispose();
 
-                return false;
+                this._logger.LogInformation($"{nameof(Connect)} - Connected");
+                this.SwitchToConnected();
+
+                this.PrepareStream();
+
+                return true;
+            }
+            catch (Exception exception)
+            {
+                this._logger.LogError(exception, $"{nameof(Connect)}");
+                this._tcpClient?.Dispose();
             }
 
-            this._tcpClient.EndConnect(asyncResult);
-
-            this._logger.LogInformation($"{nameof(Connect)} - Connected");
-            this.SwitchToConnected();
-
-            this.PrepareStream();
-            return true;
+            return false;
         }
 
         /// <summary>
@@ -418,7 +440,12 @@ namespace Nager.TcpClient
                             if (data == null || data.Length == 0)
                             {
                                 this._logger.LogTrace($"{nameof(DataReceiverAsync)} - No data received");
-                                await Task.Delay(defaultTimeout).ConfigureAwait(false);
+
+                                await Task
+                                .Delay(defaultTimeout, cancellationToken)
+                                .ContinueWith(task => { }, CancellationToken.None)
+                                .ConfigureAwait(false);
+
                                 return;
                             }
 
@@ -447,21 +474,33 @@ namespace Nager.TcpClient
                 return Array.Empty<byte>();
             }
 
-            this._logger.LogTrace($"{nameof(DataReadAsync)} - Read data...");
+            try
+            {
+                this._logger.LogTrace($"{nameof(DataReadAsync)} - Read data...");
 #if (NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER)
-            var numberOfBytesToRead = await this._stream.ReadAsync(this._receiveBuffer.AsMemory(0, this._receiveBuffer.Length), cancellationToken).ConfigureAwait(false);
+                var numberOfBytesToRead = await this._stream.ReadAsync(this._receiveBuffer.AsMemory(0, this._receiveBuffer.Length), cancellationToken).ConfigureAwait(false);
 #else
             var numberOfBytesToRead = await this._stream.ReadAsync(this._receiveBuffer, 0, this._receiveBuffer.Length, cancellationToken).ConfigureAwait(false);
 #endif
-            this._logger.LogTrace($"{nameof(DataReadAsync)} - NumberOfBytesToRead:{numberOfBytesToRead}");
+                this._logger.LogTrace($"{nameof(DataReadAsync)} - NumberOfBytesToRead:{numberOfBytesToRead}");
 
-            using var memoryStream = new MemoryStream();
+                using var memoryStream = new MemoryStream();
 #if (NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER)
-            await memoryStream.WriteAsync(this._receiveBuffer.AsMemory(0, numberOfBytesToRead), cancellationToken).ConfigureAwait(false);
+                await memoryStream.WriteAsync(this._receiveBuffer.AsMemory(0, numberOfBytesToRead), cancellationToken).ConfigureAwait(false);
 #else
             await memoryStream.WriteAsync(this._receiveBuffer, 0, numberOfBytesToRead, cancellationToken).ConfigureAwait(false);
 #endif
-            return memoryStream.ToArray();
+                return memoryStream.ToArray();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            catch (Exception exception)
+            {
+                this._logger.LogError(exception, $"{nameof(DataReadAsync)}");
+            }
+
+            return Array.Empty<byte>();
         }
     }
 }
