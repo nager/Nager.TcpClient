@@ -106,7 +106,6 @@ namespace Nager.TcpClient
                 this._cancellationTokenSource?.Dispose();
 
                 this._dataReceiverTask.Wait(50);
-                this._dataReceiverTask.Dispose();
 
                 this._streamCancellationTokenRegistration.Dispose();
 
