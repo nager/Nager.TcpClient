@@ -2,6 +2,12 @@
 
 An easy tcp client
 
+## How can I use it?
+
+The package is available on [nuget](https://www.nuget.org/packages/Nager.TcpClient)
+```
+PM> install-package Nager.TcpClient
+```
 
 ## Examples of use
 ```cs
