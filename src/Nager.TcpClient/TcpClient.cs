@@ -15,6 +15,8 @@ namespace Nager.TcpClient
         private readonly ILogger<TcpClient> _logger;
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly CancellationTokenRegistration _streamCancellationTokenRegistration;
+        private readonly Task _dataReceiverTask;
+        private readonly TcpClientKeepAliveConfig _keepAliveConfig;
 
         private readonly byte[] _receiveBuffer;
 
@@ -40,12 +42,15 @@ namespace Nager.TcpClient
         /// TcpClient
         /// </summary>
         /// <param name="clientConfig"></param>
+        /// <param name="keepAliveConfig"></param>
         /// <param name="logger"></param>
         public TcpClient(
             TcpClientConfig? clientConfig = default,
+            TcpClientKeepAliveConfig? keepAliveConfig = default,
             ILogger<TcpClient>? logger = default)
         {
             this._cancellationTokenSource = new CancellationTokenSource();
+            this._keepAliveConfig = keepAliveConfig;
 
             if (clientConfig == default)
             {
@@ -70,7 +75,7 @@ namespace Nager.TcpClient
                 this._stream.Close();
             });
 
-            _ = Task.Run(async () => await this.DataReceiver(this._cancellationTokenSource.Token), this._cancellationTokenSource.Token);
+            this._dataReceiverTask = Task.Run(async () => await this.DataReceiver(this._cancellationTokenSource.Token), this._cancellationTokenSource.Token);
         }
 
         /// <inheritdoc />
@@ -88,26 +93,50 @@ namespace Nager.TcpClient
         {
             if (disposing)
             {
-                this._cancellationTokenSource.Cancel();
-                this._cancellationTokenSource.Dispose();
+                this._logger.LogTrace($"{nameof(Dispose)} - start");
+
+                if (this._cancellationTokenSource != null)
+                {
+                    if (!this._cancellationTokenSource.IsCancellationRequested)
+                    {
+                        this._cancellationTokenSource.Cancel();
+                    }
+                }
+
+                this._cancellationTokenSource?.Dispose();
+
+                this._dataReceiverTask.Wait(50);
+                this._dataReceiverTask.Dispose();
 
                 this._streamCancellationTokenRegistration.Dispose();
 
                 this.DisposeTcpClientAndStream();
+
+                this._logger.LogTrace($"{nameof(Dispose)} - done");
             }
         }
 
         private void DisposeTcpClientAndStream()
         {
-            this._stream?.Close();
-            this._stream?.Dispose();
+            if (this._stream != null)
+            {
+                if (this._stream.CanWrite || this._stream.CanRead || this._stream.CanSeek)
+                {
+                    this._logger.LogTrace($"{nameof(DisposeTcpClientAndStream)} - Dispose stream");
+
+                    this._stream?.Close();
+                    this._stream?.Dispose();
+                }
+            }
 
             if (this._tcpClient != null)
             {
                 if (this._tcpClient.Connected)
                 {
+                    this._logger.LogTrace($"{nameof(DisposeTcpClientAndStream)} - Close TcpClient");
                     this._tcpClient.Close();
                 }
+
                 this._tcpClient.Dispose();
             }
         }
@@ -121,6 +150,14 @@ namespace Nager.TcpClient
             }
 
             this._stream = this._tcpClient.GetStream();
+
+            if (this._keepAliveConfig != null)
+            {
+                if (!this._tcpClient.SetKeepAlive(this._keepAliveConfig.KeepAliveTime, this._keepAliveConfig.KeepAliveInterval, this._keepAliveConfig.KeepAliveRetryCount))
+                {
+                    this._logger.LogError($"{nameof(PrepareStream)} - Cannot set KeepAlive config");
+                }
+            }
         }
 
         /// <summary>
@@ -139,7 +176,7 @@ namespace Nager.TcpClient
 
             this._tcpClient = new System.Net.Sockets.TcpClient();
 
-            this._logger.LogDebug("Connecting");
+            this._logger.LogDebug($"{nameof(Connect)} - Connecting");
             IAsyncResult asyncResult = this._tcpClient.BeginConnect(ipAddressOrHostname, port, null, null);
             var waitHandle = asyncResult.AsyncWaitHandle;
 
@@ -152,7 +189,7 @@ namespace Nager.TcpClient
 
             this._tcpClient.EndConnect(asyncResult);
 
-            this._logger.LogInformation("Connected");
+            this._logger.LogInformation($"{nameof(Connect)} - Connected");
             this.Connected?.Invoke();
 
             this.PrepareStream();
@@ -170,9 +207,9 @@ namespace Nager.TcpClient
         {
             this._tcpClient = new System.Net.Sockets.TcpClient();
 
-            this._logger.LogDebug("Connecting");
+            this._logger.LogDebug($"{nameof(ConnectAsync)} - Connecting");
             await this._tcpClient.ConnectAsync(ipAddressOrHostname, port);
-            this._logger.LogInformation("Connected");
+            this._logger.LogInformation($"{nameof(ConnectAsync)} - Connected");
             this.Connected?.Invoke();
 
             this.PrepareStream();
@@ -194,9 +231,9 @@ namespace Nager.TcpClient
         {
             this._tcpClient = new System.Net.Sockets.TcpClient();
 
-            this._logger.LogDebug("Connecting");
+            this._logger.LogDebug($"{nameof(ConnectAsync)} - Connecting");
             await this._tcpClient.ConnectAsync(ipAddressOrHostname, port, cancellationToken);
-            this._logger.LogInformation("Connected");
+            this._logger.LogInformation($"{nameof(ConnectAsync)} - Connected");
             this.Connected?.Invoke();
 
             this.PrepareStream();
@@ -209,6 +246,7 @@ namespace Nager.TcpClient
         /// </summary>
         public void Disconnect()
         {
+            this._logger.LogInformation($"{nameof(Disconnect)}");
             this.DisposeTcpClientAndStream();
         }
 
