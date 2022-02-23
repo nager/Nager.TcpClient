@@ -1,6 +1,11 @@
 # Nager.TcpClient
 
-An easy tcp client
+<img src="https://raw.githubusercontent.com/nager/Nager.TcpClient/main/doc/icon.png" width="150" title="Portalum Zvt Client" alt="Portalum Zvt Client" align="left">
+
+An easy **TcpClient** with async Connect logic. Received data packets are available via an event `DataReceived`. There are also events for `Connected` and `Disconnected`. Additionally there is the possibility to activate a Tcp KeepAlive. The library offers the possibility to pass an `ILogger` for logging.
+
+<br>
+<br>
 
 ## How can I use it?
 
@@ -10,6 +15,8 @@ PM> install-package Nager.TcpClient
 ```
 
 ## Examples of use
+
+Connect to an online echo service `tcpbin.com` who sends back all packages
 ```cs
 void OnDataReceived(byte[] receivedData)
 {
@@ -23,3 +30,11 @@ await Task.Delay(400);
 tcpClient.Disconnect();
 tcpClient.DataReceived -= OnDataReceived;
 ```
+
+## Other projects in the .NET enviorment
+
+| Project | Description |
+| ------------- | ------------- |
+| [SuperSimpleTcp](https://github.com/jchristn/SuperSimpleTcp) | TcpServer and TcpClient (with SSL support) |
+| [DotNetty](https://github.com/Azure/DotNetty) | TcpServer and TcpClient |
+| [SpanNetty](https://github.com/cuteant/SpanNetty) | TcpServer and TcpClient (Modern implementation of DotNetty) |
