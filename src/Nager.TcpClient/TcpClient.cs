@@ -422,45 +422,48 @@ namespace Nager.TcpClient
                     continue;
                 }
 
-                try
-                {
-                    this._logger.LogTrace($"{nameof(DataReceiverAsync)} - Wait for data...");
 
-                    await DataReadAsync(cancellationToken)
-                        .ContinueWith(async task =>
+                this._logger.LogTrace($"{nameof(DataReceiverAsync)} - Wait for data...");
+
+                var readTaskSuccessful = await DataReadAsync(cancellationToken)
+                    .ContinueWith(async task =>
+                    {
+                        if (task.IsCanceled)
                         {
-                            if (task.IsCanceled)
-                            {
-                                this._logger.LogTrace($"{nameof(DataReceiverAsync)} - Timeout");
-                                return;
-                            }
+                            this._logger.LogTrace($"{nameof(DataReceiverAsync)} - Timeout");
+                            return false;
+                        }
 
-                            byte[] data = task.Result;
+                        if (task.IsFaulted)
+                        {
+                            this.SwitchToDisconnected();
+                            return false;
+                        }
 
-                            if (data == null || data.Length == 0)
-                            {
-                                this._logger.LogTrace($"{nameof(DataReceiverAsync)} - No data received");
+                        byte[] data = task.Result;
 
-                                await Task
-                                .Delay(defaultTimeout, cancellationToken)
-                                .ContinueWith(task => { }, CancellationToken.None)
-                                .ConfigureAwait(false);
+                        if (data == null || data.Length == 0)
+                        {
+                            this._logger.LogTrace($"{nameof(DataReceiverAsync)} - No data received");
 
-                                return;
-                            }
+                            await Task
+                            .Delay(defaultTimeout, cancellationToken)
+                            .ContinueWith(task => { }, CancellationToken.None)
+                            .ConfigureAwait(false);
 
-                            this.DataReceived?.Invoke(data);
+                            return true;
+                        }
 
-                        }, cancellationToken)
-                        .ContinueWith(task => { }, CancellationToken.None)
-                        .ConfigureAwait(false);
-                }
-                catch (Exception exception)
+                        this.DataReceived?.Invoke(data);
+
+                        return true;
+                    }, cancellationToken)
+                    .ContinueWith(task => { return task.Result.Result; }, CancellationToken.None)
+                    .ConfigureAwait(false);
+
+                if (!readTaskSuccessful)
                 {
-                    this._logger.LogInformation("Disconnected");
-                    this.SwitchToDisconnected();
-                    this._logger.LogError(exception, $"{nameof(DataReceiverAsync)}");
-                    break;
+                    return;
                 }
             }
 
@@ -495,9 +498,14 @@ namespace Nager.TcpClient
             catch (ObjectDisposedException)
             {
             }
+            catch (IOException)
+            {
+                throw;
+            }
             catch (Exception exception)
             {
                 this._logger.LogError(exception, $"{nameof(DataReadAsync)}");
+                throw;
             }
 
             return Array.Empty<byte>();

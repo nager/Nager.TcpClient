@@ -12,7 +12,7 @@ var logger = loggerFactory.CreateLogger<TcpClient>();
 
 var tcpClient = new TcpClient(logger: logger, keepAliveConfig: new TcpClientKeepAliveConfig());
 tcpClient.Disconnected += () => Console.WriteLine("Disconnected");
-if (!await tcpClient.ConnectAsync("10.14.20.18", 20007))
+if (!await tcpClient.ConnectAsync("tcpbin.com", 4242))
 {
     Console.WriteLine("Cannot connect");
     return;
