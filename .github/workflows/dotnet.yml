@@ -44,7 +44,7 @@ jobs:
       run: |
         dotnet pack --configuration Release --output $GITHUB_WORKSPACE/out src/Nager.TcpClient/Nager.TcpClient.csproj
     - name: Push NuGet package
-      if: github.event_name != 'pull_request'
+      if: github.event_name != 'pull_request' && matrix.os == 'ubuntu-latest'
       run: |
         cd $GITHUB_WORKSPACE/out
         dotnet nuget push *.nupkg --source https://www.nuget.org/api/v2/package --api-key ${{secrets.NUGET_TOKEN}} --skip-duplicate --no-symbols
