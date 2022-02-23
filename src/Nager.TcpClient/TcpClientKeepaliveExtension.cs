@@ -3,7 +3,10 @@ using System.Net.Sockets;
 
 namespace Nager.TcpClient
 {
-    public static class TcpClientKeepaliveExtension
+    /// <summary>
+    /// TcpClient KeepAlive Extension
+    /// </summary>
+    public static class TcpClientKeepAliveExtension
     {
         /// <summary>
         /// SetKeepAlive

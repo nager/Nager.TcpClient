@@ -77,6 +77,8 @@ namespace Nager.TcpClient.UnitTest
             tcpClient.Dispose();
         }
 
+#if NET5_0_OR_GREATER
+
         [TestMethod]
         public async Task CheckConnectAsyncWithCancellationToken_Successful()
         {
@@ -92,6 +94,8 @@ namespace Nager.TcpClient.UnitTest
             tcpClient.Disconnect();
             tcpClient.Dispose();
         }
+
+#endif
 
         [TestMethod]
         public async Task CheckSendAndReceiveWork_Successful()
