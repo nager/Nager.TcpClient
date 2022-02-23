@@ -17,7 +17,7 @@ namespace Nager.TcpClient
         private readonly CancellationTokenRegistration _streamCancellationTokenRegistration;
         private readonly Task _dataReceiverTask;
         private readonly TcpClientKeepAliveConfig? _keepAliveConfig;
-        private readonly object _lock = new object();
+        private readonly object _syncLock = new object();
 
         private readonly byte[] _receiveBuffer;
 
@@ -168,7 +168,7 @@ namespace Nager.TcpClient
 
         private bool SwitchToConnected()
         {
-            lock (this._lock)
+            lock (this._syncLock)
             {
                 if (this._isConnected)
                 {
@@ -184,7 +184,7 @@ namespace Nager.TcpClient
 
         private bool SwitchToDisconnected()
         {
-            lock (this._lock)
+            lock (this._syncLock)
             {
                 if (!this._isConnected)
                 {
@@ -348,7 +348,7 @@ namespace Nager.TcpClient
                 return;
             }
 
-            this._logger.LogDebug($"{nameof(SendAsync)} {BitConverter.ToString(data)}");
+            this._logger.LogDebug($"{nameof(SendAsync)} - Data:{BitConverter.ToString(data)}");
 #if (NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER)
             await this._stream.WriteAsync(data.AsMemory(0, data.Length), cancellationToken).ConfigureAwait(false);
 #else
@@ -366,7 +366,12 @@ namespace Nager.TcpClient
                 if (this._tcpClient == null)
                 {
                     this._logger.LogTrace($"{nameof(DataReceiverAsync)} - TcpClient not initialized");
-                    await Task.Delay(defaultTimeout, cancellationToken).ContinueWith(task => { }).ConfigureAwait(false);
+
+                    await Task
+                        .Delay(defaultTimeout, cancellationToken)
+                        .ContinueWith(task => { }, CancellationToken.None)
+                        .ConfigureAwait(false);
+
                     continue;
                 }
 
@@ -374,14 +379,24 @@ namespace Nager.TcpClient
                 {
                     this.SwitchToDisconnected();
                     this._logger.LogTrace($"{nameof(DataReceiverAsync)} - Client not connected");
-                    await Task.Delay(defaultTimeout, cancellationToken).ContinueWith(task => { }).ConfigureAwait(false);
+
+                    await Task
+                        .Delay(defaultTimeout, cancellationToken)
+                        .ContinueWith(task => { }, CancellationToken.None)
+                        .ConfigureAwait(false);
+
                     continue;
                 }
 
                 if (this._stream == null)
                 {
                     this._logger.LogTrace($"{nameof(DataReceiverAsync)} - Stream not ready");
-                    await Task.Delay(defaultTimeout, cancellationToken).ContinueWith(task => { }).ConfigureAwait(false);
+
+                    await Task
+                        .Delay(defaultTimeout, cancellationToken)
+                        .ContinueWith(task => { }, CancellationToken.None)
+                        .ConfigureAwait(false);
+
                     continue;
                 }
 
@@ -389,26 +404,29 @@ namespace Nager.TcpClient
                 {
                     this._logger.LogTrace($"{nameof(DataReceiverAsync)} - Wait for data...");
 
-                    await DataReadAsync(cancellationToken).ContinueWith(async task =>
-                    {
-                        if (task.IsCanceled)
+                    await DataReadAsync(cancellationToken)
+                        .ContinueWith(async task =>
                         {
-                            this._logger.LogTrace($"{nameof(DataReceiverAsync)} - Timeout");
-                            return;
-                        }
+                            if (task.IsCanceled)
+                            {
+                                this._logger.LogTrace($"{nameof(DataReceiverAsync)} - Timeout");
+                                return;
+                            }
 
-                        byte[] data = task.Result;
+                            byte[] data = task.Result;
 
-                        if (data == null || data.Length == 0)
-                        {
-                            this._logger.LogTrace($"{nameof(DataReceiverAsync)} - No data received");
-                            await Task.Delay(defaultTimeout).ConfigureAwait(false);
-                            return;
-                        }
+                            if (data == null || data.Length == 0)
+                            {
+                                this._logger.LogTrace($"{nameof(DataReceiverAsync)} - No data received");
+                                await Task.Delay(defaultTimeout).ConfigureAwait(false);
+                                return;
+                            }
 
-                        this.DataReceived?.Invoke(data);
+                            this.DataReceived?.Invoke(data);
 
-                    }, cancellationToken).ContinueWith(task => { }).ConfigureAwait(false);
+                        }, cancellationToken)
+                        .ContinueWith(task => { }, CancellationToken.None)
+                        .ConfigureAwait(false);
                 }
                 catch (Exception exception)
                 {

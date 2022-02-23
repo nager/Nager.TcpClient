@@ -26,7 +26,7 @@ namespace Nager.TcpClient.UnitTest
         [TestMethod]
         public void Connect_NonRoutableIpAddress_Failure()
         {
-            var ipAddress = "192.168.0.0";
+            var ipAddress = "10.255.255.1";
             var port = 4242;
             var connectionTimeoutMilliseconds = 3000;
 
