@@ -113,6 +113,10 @@ namespace Nager.TcpClient.UnitTest
                 isDataReceived = true;
                 isReceivedDataValid = Enumerable.SequenceEqual(receivedData, data);
                 Trace.WriteLine($"ReceivedData: {BitConverter.ToString(receivedData)}");
+                if (!isReceivedDataValid)
+                {
+                    Trace.WriteLine($"ExpectedData: {BitConverter.ToString(data)}");
+                }
             }
 
             var mockLoggerTcpClient = LoggerHelper.GetLogger<TcpClient>();
