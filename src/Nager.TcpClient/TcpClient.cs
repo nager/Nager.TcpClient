@@ -203,11 +203,11 @@ namespace Nager.TcpClient
         /// </summary>
         /// <param name="ipAddressOrHostname"></param>
         /// <param name="port"></param>
-        /// <param name="connectionTimeoutInMilliseconds"></param>
+        /// <param name="connectionTimeoutInMilliseconds">default: 2s</param>
         public bool Connect(
             string ipAddressOrHostname,
             int port,
-            int connectionTimeoutInMilliseconds)
+            int connectionTimeoutInMilliseconds = 2000)
         {
             ipAddressOrHostname = ipAddressOrHostname ?? throw new ArgumentNullException(nameof(ipAddressOrHostname));
 
