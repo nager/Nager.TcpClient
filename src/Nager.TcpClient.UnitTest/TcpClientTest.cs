@@ -80,6 +80,22 @@ namespace Nager.TcpClient.UnitTest
 #if NET5_0_OR_GREATER
 
         [TestMethod]
+        public async Task CheckAsyncConnectionTimeout_Successful()
+        {
+            var ipAddress = "127.0.0.1";
+            var port = 12345;
+
+            var mockLoggerTcpClient = LoggerHelper.GetLogger<TcpClient>();
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            var tcpClient = new TcpClient(logger: mockLoggerTcpClient.Object);
+            var isConnected = await tcpClient.ConnectAsync(ipAddress, port, cancellationTokenSource.Token);
+
+            Assert.IsFalse(isConnected, "Can connect something is wrong?");
+        }
+
+        [TestMethod]
         public async Task CheckConnectAsyncWithCancellationToken_Successful()
         {
             var ipAddress = "tcpbin.com";

@@ -22,6 +22,14 @@ namespace Nager.TcpClient
 
         private System.Net.Sockets.TcpClient? _tcpClient;
         private Stream? _stream;
+        private bool _isConnected;
+
+        private object _lock = new object();
+
+        /// <summary>
+        /// Is client connected
+        /// </summary>
+        public bool IsConnected {  get { return _isConnected; } }
 
         /// <summary>
         /// Event to call when the connection is established.
@@ -159,19 +167,55 @@ namespace Nager.TcpClient
             }
         }
 
+        private bool SwitchToConnected()
+        {
+            lock (this._lock)
+            {
+                if (this._isConnected)
+                {
+                    return false;
+                }
+
+                this._isConnected = true;
+                this.Connected?.Invoke();
+
+                return true;
+            }
+        }
+
+        private bool SwitchToDisconnected()
+        {
+            lock (this._lock)
+            {
+                if (!this._isConnected)
+                {
+                    return false;
+                }
+
+                this._isConnected = false;
+                this.Disconnected?.Invoke();
+
+                return true;
+            }
+        }
+
         /// <summary>
         /// Connect
         /// </summary>
         /// <param name="ipAddressOrHostname"></param>
         /// <param name="port"></param>
         /// <param name="connectionTimeoutInMilliseconds"></param>
-        /// <exception cref="TimeoutException"></exception>
-        public void Connect(
+        public bool Connect(
             string ipAddressOrHostname,
             int port,
             int connectionTimeoutInMilliseconds)
         {
             ipAddressOrHostname = ipAddressOrHostname ?? throw new ArgumentNullException(nameof(ipAddressOrHostname));
+
+            if (this._isConnected)
+            {
+                return false;
+            }
 
             this._tcpClient = new System.Net.Sockets.TcpClient();
 
@@ -181,17 +225,21 @@ namespace Nager.TcpClient
 
             if (!asyncResult.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(connectionTimeoutInMilliseconds), exitContext: false))
             {
+                this._logger.LogError($"{nameof(Connect)} - Timeout");
+
                 this._tcpClient.Close();
                 waitHandle.Close();
-                throw new TimeoutException($"Timeout reached, {connectionTimeoutInMilliseconds}ms");
+
+                return false;
             }
 
             this._tcpClient.EndConnect(asyncResult);
 
             this._logger.LogInformation($"{nameof(Connect)} - Connected");
-            this.Connected?.Invoke();
+            this.SwitchToConnected();
 
             this.PrepareStream();
+            return true;
         }
 
         /// <summary>
@@ -200,18 +248,36 @@ namespace Nager.TcpClient
         /// <param name="ipAddressOrHostname"></param>
         /// <param name="port"></param>
         /// <returns></returns>
-        public async Task ConnectAsync(
+        public async Task<bool> ConnectAsync(
             string ipAddressOrHostname,
             int port)
         {
+            ipAddressOrHostname = ipAddressOrHostname ?? throw new ArgumentNullException(nameof(ipAddressOrHostname));
+
+            if (this._isConnected)
+            {
+                return false;
+            }
+
             this._tcpClient = new System.Net.Sockets.TcpClient();
 
             this._logger.LogDebug($"{nameof(ConnectAsync)} - Connecting");
-            await this._tcpClient.ConnectAsync(ipAddressOrHostname, port).ConfigureAwait(false);
+
+            try
+            {
+                await this._tcpClient.ConnectAsync(ipAddressOrHostname, port).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                this._logger.LogError(exception, $"{nameof(ConnectAsync)} - Cannot connect");
+                return false;
+            }
+
             this._logger.LogInformation($"{nameof(ConnectAsync)} - Connected");
-            this.Connected?.Invoke();
+            this.SwitchToConnected();
 
             this.PrepareStream();
+            return true;
         }
 
 #if (NET5_0_OR_GREATER)
@@ -223,19 +289,37 @@ namespace Nager.TcpClient
         /// <param name="port"></param>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        public async Task ConnectAsync(
+        public async Task<bool> ConnectAsync(
             string ipAddressOrHostname,
             int port,
             CancellationToken cancellationToken = default)
         {
+            ipAddressOrHostname = ipAddressOrHostname ?? throw new ArgumentNullException(nameof(ipAddressOrHostname));
+
+            if (this._isConnected)
+            {
+                return false;
+            }
+
             this._tcpClient = new System.Net.Sockets.TcpClient();
 
             this._logger.LogDebug($"{nameof(ConnectAsync)} - Connecting");
-            await this._tcpClient.ConnectAsync(ipAddressOrHostname, port, cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                await this._tcpClient.ConnectAsync(ipAddressOrHostname, port, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                this._logger.LogError(exception, $"{nameof(ConnectAsync)} - Cannot connect");
+                return false;
+            }
+
             this._logger.LogInformation($"{nameof(ConnectAsync)} - Connected");
-            this.Connected?.Invoke();
+            this.SwitchToConnected();
 
             this.PrepareStream();
+            return true;
         }
 
 #endif
@@ -247,6 +331,7 @@ namespace Nager.TcpClient
         {
             this._logger.LogInformation($"{nameof(Disconnect)}");
             this.DisposeTcpClientAndStream();
+            this.SwitchToDisconnected();
         }
 
         /// <summary>
@@ -288,6 +373,7 @@ namespace Nager.TcpClient
 
                 if (!this._tcpClient.Connected)
                 {
+                    this.SwitchToDisconnected();
                     this._logger.LogTrace($"{nameof(DataReceiverAsync)} - Client not connected");
                     await Task.Delay(defaultTimeout, cancellationToken).ContinueWith(task => { }).ConfigureAwait(false);
                     continue;
@@ -328,7 +414,7 @@ namespace Nager.TcpClient
                 catch (Exception exception)
                 {
                     this._logger.LogInformation("Disconnected");
-                    this.Disconnected?.Invoke();
+                    this.SwitchToDisconnected();
                     this._logger.LogError(exception, $"{nameof(DataReceiverAsync)}");
                     break;
                 }
