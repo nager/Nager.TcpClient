@@ -314,7 +314,7 @@ namespace Nager.TcpClient
 
                         byte[] data = task.Result;
 
-                        if (data == null)
+                        if (data == null || data.Length == 0)
                         {
                             this._logger.LogTrace($"{nameof(DataReceiverAsync)} - No data received");
                             await Task.Delay(defaultTimeout).ConfigureAwait(false);
