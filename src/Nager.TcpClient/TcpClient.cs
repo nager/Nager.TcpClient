@@ -373,8 +373,10 @@ namespace Nager.TcpClient
             this._logger.LogDebug($"{nameof(SendAsync)} - Data:{BitConverter.ToString(data)}");
 #if (NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER)
             await this._stream.WriteAsync(data.AsMemory(0, data.Length), cancellationToken).ConfigureAwait(false);
+            await this._stream.FlushAsync(cancellationToken).ConfigureAwait(false);
 #else
             await this._stream.WriteAsync(data, 0, data.Length, cancellationToken).ConfigureAwait(false);
+            await this._stream.FlushAsync(cancellationToken).ConfigureAwait(false);
 #endif
         }
 
@@ -477,23 +479,34 @@ namespace Nager.TcpClient
                 return Array.Empty<byte>();
             }
 
+            if (!this._stream.CanRead)
+            {
+                this._logger.LogError($"{nameof(DataReadAsync)} - CanRead is false");
+            }
+
             try
             {
-                this._logger.LogTrace($"{nameof(DataReadAsync)} - Read data...");
 #if (NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER)
-                var numberOfBytesToRead = await this._stream.ReadAsync(this._receiveBuffer.AsMemory(0, this._receiveBuffer.Length), cancellationToken).ConfigureAwait(false);
-#else
-            var numberOfBytesToRead = await this._stream.ReadAsync(this._receiveBuffer, 0, this._receiveBuffer.Length, cancellationToken).ConfigureAwait(false);
-#endif
-                this._logger.LogTrace($"{nameof(DataReadAsync)} - NumberOfBytesToRead:{numberOfBytesToRead}");
 
+                this._logger.LogTrace($"{nameof(DataReadAsync)} - Read data... (AsMemory)");
+
+                var numberOfBytesToRead = await this._stream.ReadAsync(this._receiveBuffer.AsMemory(0, this._receiveBuffer.Length), cancellationToken).ConfigureAwait(false);
+                this._logger.LogTrace($"{nameof(DataReadAsync)} - NumberOfBytesToRead:{numberOfBytesToRead}");
                 using var memoryStream = new MemoryStream();
-#if (NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER)
                 await memoryStream.WriteAsync(this._receiveBuffer.AsMemory(0, numberOfBytesToRead), cancellationToken).ConfigureAwait(false);
-#else
-            await memoryStream.WriteAsync(this._receiveBuffer, 0, numberOfBytesToRead, cancellationToken).ConfigureAwait(false);
-#endif
                 return memoryStream.ToArray();
+
+#else
+
+                this._logger.LogTrace($"{nameof(DataReadAsync)} - Read data...");
+
+                var numberOfBytesToRead = await this._stream.ReadAsync(this._receiveBuffer, 0, this._receiveBuffer.Length, cancellationToken).ConfigureAwait(false);
+                this._logger.LogTrace($"{nameof(DataReadAsync)} - NumberOfBytesToRead:{numberOfBytesToRead}");
+                using var memoryStream = new MemoryStream();
+                await memoryStream.WriteAsync(this._receiveBuffer, 0, numberOfBytesToRead, cancellationToken).ConfigureAwait(false);
+                return memoryStream.ToArray();
+
+#endif
             }
             catch (ObjectDisposedException)
             {
