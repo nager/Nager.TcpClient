@@ -39,13 +39,13 @@ jobs:
     - name: Test
       working-directory: ./src
       run: |
-        dotnet test --configuration Release --no-restore --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx" || true
+        dotnet test --configuration Release --no-restore --no-build --verbosity normal --logger trx || true
     - name: Test Report
       uses: dorny/test-reporter@v1
       if: always()
       with:
         name: DotNET Tests
-        path: "**/test-results.trx"                            
+        path: "**/*.trx"                            
         reporter: dotnet-trx
         fail-on-error: true
     - name: Build project and generate NuGet package
