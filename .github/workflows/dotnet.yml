@@ -39,7 +39,15 @@ jobs:
     - name: Test
       working-directory: ./src
       run: |
-        dotnet test --configuration Release --no-restore --no-build --verbosity normal
+        dotnet test --configuration Release --no-restore --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx" || true
+    - name: Test Report
+      uses: dorny/test-reporter@v1
+      if: always()
+      with:
+        name: DotNET Tests
+        path: "**/test-results.trx"                            
+        reporter: dotnet-trx
+        fail-on-error: true
     - name: Build project and generate NuGet package
       if: matrix.os == 'ubuntu-latest'
       run: |
