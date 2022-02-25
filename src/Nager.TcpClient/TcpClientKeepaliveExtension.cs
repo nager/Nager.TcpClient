@@ -24,7 +24,7 @@ namespace Nager.TcpClient
         {
             try
             {
-#if (NET6_0 || NET5_0)
+#if (NET5_0_OR_GREATER)
 
                 tcpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
                 tcpClient.Client.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveTime, tcpKeepAliveTime);

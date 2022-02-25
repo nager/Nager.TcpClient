@@ -134,8 +134,9 @@ namespace Nager.TcpClient
                     this._logger.LogTrace($"{nameof(DisposeTcpClientAndStream)} - Dispose stream");
 
                     this._stream?.Close();
-                    this._stream?.Dispose();
                 }
+
+                this._stream?.Dispose();
             }
 
             if (this._tcpClient != null)
@@ -146,6 +147,7 @@ namespace Nager.TcpClient
                     this._tcpClient.Close();
                 }
 
+                this._logger.LogTrace($"{nameof(DisposeTcpClientAndStream)} - Dispose TcpClient");
                 this._tcpClient.Dispose();
             }
         }
@@ -371,12 +373,17 @@ namespace Nager.TcpClient
             }
 
             this._logger.LogDebug($"{nameof(SendAsync)} - Data:{BitConverter.ToString(data)}");
+
 #if (NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER)
+
             await this._stream.WriteAsync(data.AsMemory(0, data.Length), cancellationToken).ConfigureAwait(false);
             await this._stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+
 #else
+
             await this._stream.WriteAsync(data, 0, data.Length, cancellationToken).ConfigureAwait(false);
             await this._stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+
 #endif
         }
 
@@ -424,7 +431,6 @@ namespace Nager.TcpClient
                     continue;
                 }
 
-
                 this._logger.LogTrace($"{nameof(DataReceiverAsync)} - Wait for data...");
 
                 var readTaskSuccessful = await DataReadAsync(cancellationToken)
@@ -460,7 +466,15 @@ namespace Nager.TcpClient
 
                         return true;
                     }, cancellationToken)
-                    .ContinueWith(task => { return task.Result.Result; }, CancellationToken.None)
+                    .ContinueWith(task =>
+                    {
+                        if (task.IsCanceled)
+                        {
+                            return false;
+                        }
+
+                        return task.Result.Result;
+                    }, CancellationToken.None)
                     .ConfigureAwait(false);
 
                 if (!readTaskSuccessful)
@@ -476,6 +490,7 @@ namespace Nager.TcpClient
         {
             if (this._stream == null)
             {
+                this._logger.LogError($"{nameof(DataReadAsync)} - Stream is null");
                 return Array.Empty<byte>();
             }
 
@@ -498,7 +513,7 @@ namespace Nager.TcpClient
 
 #else
 
-                this._logger.LogTrace($"{nameof(DataReadAsync)} - Read data...");
+                this._logger.LogTrace($"{nameof(DataReadAsync)} - Read data... (ByteArray)");
 
                 var numberOfBytesToRead = await this._stream.ReadAsync(this._receiveBuffer, 0, this._receiveBuffer.Length, cancellationToken).ConfigureAwait(false);
                 this._logger.LogTrace($"{nameof(DataReadAsync)} - NumberOfBytesToRead:{numberOfBytesToRead}");
@@ -510,6 +525,7 @@ namespace Nager.TcpClient
             }
             catch (ObjectDisposedException)
             {
+                this._logger.LogTrace($"{nameof(DataReadAsync)} - ObjectDisposedException");
             }
             catch (IOException)
             {
