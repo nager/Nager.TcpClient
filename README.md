@@ -16,6 +16,7 @@ PM> install-package Nager.TcpClient
 
 ## Examples of use
 
+### Connect with a timeout of 1000ms
 Connect to an online echo service `tcpbin.com` who sends back all packages
 ```cs
 void OnDataReceived(byte[] receivedData)
@@ -25,6 +26,24 @@ void OnDataReceived(byte[] receivedData)
 using var tcpClient = new TcpClient();
 tcpClient.DataReceived += OnDataReceived;
 tcpClient.Connect("tcpbin.com", 4242, 1000);
+await tcpClient.SendAsync(new byte[] { 0x01, 0x0A });
+await Task.Delay(400);
+tcpClient.Disconnect();
+tcpClient.DataReceived -= OnDataReceived;
+```
+
+### ConnectAsync with a timeout of 1000ms (Available from .NET 5 and higher)
+Connect to an online echo service `tcpbin.com` who sends back all packages
+```cs
+void OnDataReceived(byte[] receivedData)
+{
+}
+
+using var cancellationTokenSource = new CancellationTokenSource(1000);
+
+using var tcpClient = new TcpClient();
+tcpClient.DataReceived += OnDataReceived;
+tcpClient.ConnectAsync("tcpbin.com", 4242, cancellationTokenSource.Token);
 await tcpClient.SendAsync(new byte[] { 0x01, 0x0A });
 await Task.Delay(400);
 tcpClient.Disconnect();
