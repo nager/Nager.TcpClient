@@ -1,5 +1,6 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
@@ -43,6 +44,39 @@ namespace Nager.TcpClient.UnitTest
             tcpClient.DataReceived -= OnDataReceived;
 
             Assert.IsTrue(isDataReceived, "No data received");
+            Assert.IsTrue(isReceivedDataValid, "Invalid data received");
+        }
+
+        [TestMethod]
+        public async Task SendAndReceiveDataWithSmallReceiveBuffer_Successful()
+        {
+            var ipAddress = "tcpbin.com";
+            var port = 4242;
+
+            var config = new TcpClientConfig
+            {
+                ReceiveBufferSize = 2
+            };
+
+            var data = Encoding.UTF8.GetBytes("ping\n");
+            var receiveBuffer = new List<byte>();
+
+            void OnDataReceived(byte[] receivedData)
+            {
+                receiveBuffer.AddRange(receivedData);
+            }
+
+            var mockLoggerTcpClient = LoggerHelper.GetLogger<TcpClient>();
+
+            using var tcpClient = new TcpClient(config, logger: mockLoggerTcpClient.Object);
+            tcpClient.DataReceived += OnDataReceived;
+            tcpClient.Connect(ipAddress, port, 1000);
+            await tcpClient.SendAsync(data);
+            await Task.Delay(400);
+            tcpClient.Disconnect();
+            tcpClient.DataReceived -= OnDataReceived;
+
+            var isReceivedDataValid = Enumerable.SequenceEqual(receiveBuffer, data);
             Assert.IsTrue(isReceivedDataValid, "Invalid data received");
         }
 
