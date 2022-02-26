@@ -1,3 +1,5 @@
+#if (!NET5_0_OR_GREATER)
+
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Threading.Tasks;
 
@@ -37,3 +39,5 @@ namespace Nager.TcpClient.UnitTest
         }
     }
 }
+
+#endif

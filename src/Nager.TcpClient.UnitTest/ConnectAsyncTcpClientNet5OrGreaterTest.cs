@@ -1,3 +1,5 @@
+#if NET5_0_OR_GREATER
+
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Diagnostics;
 using System.Threading;
@@ -8,9 +10,6 @@ namespace Nager.TcpClient.UnitTest
     [TestClass]
     public class ConnectAsyncTcpClientNet5OrGreaterTest
     {
-
-#if NET5_0_OR_GREATER
-
         [TestMethod]
         public async Task ConnectAsync_WebTestService_Successful()
         {
@@ -67,8 +66,7 @@ namespace Nager.TcpClient.UnitTest
             Assert.IsFalse(connectSuccessful, "Connection should not be possible");
             Assert.IsFalse(tcpClient.IsConnected, "IsConnected has wrong state");
         }
-
-#endif
-
     }
 }
+
+#endif

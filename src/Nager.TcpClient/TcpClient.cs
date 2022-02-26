@@ -208,11 +208,11 @@ namespace Nager.TcpClient
         /// </summary>
         /// <param name="ipAddressOrHostname"></param>
         /// <param name="port"></param>
-        /// <param name="connectionTimeoutInMilliseconds">default: 2s</param>
+        /// <param name="connectTimeoutInMilliseconds">default: 2s</param>
         public bool Connect(
             string ipAddressOrHostname,
             int port,
-            int connectionTimeoutInMilliseconds = 2000)
+            int connectTimeoutInMilliseconds = 2000)
         {
             ipAddressOrHostname = ipAddressOrHostname ?? throw new ArgumentNullException(nameof(ipAddressOrHostname));
 
@@ -229,7 +229,7 @@ namespace Nager.TcpClient
                 IAsyncResult asyncResult = this._tcpClient.BeginConnect(ipAddressOrHostname, port, null, null);
                 var waitHandle = asyncResult.AsyncWaitHandle;
 
-                if (!asyncResult.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(connectionTimeoutInMilliseconds), exitContext: false))
+                if (!asyncResult.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(connectTimeoutInMilliseconds), exitContext: false))
                 {
                     this._logger.LogError($"{nameof(Connect)} - Timeout reached");
 
@@ -265,44 +265,6 @@ namespace Nager.TcpClient
             return false;
         }
 
-        /// <summary>
-        /// ConnectAsync
-        /// </summary>
-        /// <param name="ipAddressOrHostname"></param>
-        /// <param name="port"></param>
-        /// <returns></returns>
-        public async Task<bool> ConnectAsync(
-            string ipAddressOrHostname,
-            int port)
-        {
-            ipAddressOrHostname = ipAddressOrHostname ?? throw new ArgumentNullException(nameof(ipAddressOrHostname));
-
-            if (this._isConnected)
-            {
-                return false;
-            }
-
-            this._tcpClient = new System.Net.Sockets.TcpClient();
-
-            this._logger.LogDebug($"{nameof(ConnectAsync)} - Connecting");
-
-            try
-            {
-                await this._tcpClient.ConnectAsync(ipAddressOrHostname, port).ConfigureAwait(false);
-            }
-            catch (Exception exception)
-            {
-                this._logger.LogError(exception, $"{nameof(ConnectAsync)} - Cannot connect");
-                return false;
-            }
-
-            this._logger.LogInformation($"{nameof(ConnectAsync)} - Connected");
-            this.SwitchToConnected();
-
-            this.PrepareStream();
-            return true;
-        }
-
 #if (NET5_0_OR_GREATER)
 
         /// <summary>
@@ -331,6 +293,59 @@ namespace Nager.TcpClient
             try
             {
                 await this._tcpClient.ConnectAsync(ipAddressOrHostname, port, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                this._logger.LogError(exception, $"{nameof(ConnectAsync)} - Cannot connect");
+                return false;
+            }
+
+            this._logger.LogInformation($"{nameof(ConnectAsync)} - Connected");
+            this.SwitchToConnected();
+
+            this.PrepareStream();
+            return true;
+        }
+
+#else
+
+        /// <summary>
+        /// ConnectAsync
+        /// </summary>
+        /// <param name="ipAddressOrHostname"></param>
+        /// <param name="port"></param>
+        /// <param name="connectTimeoutInMilliseconds">default: 2s</param>
+        /// <returns></returns>
+        public async Task<bool> ConnectAsync(
+            string ipAddressOrHostname,
+            int port,
+            int connectTimeoutInMilliseconds = 2000
+            )
+        {
+            ipAddressOrHostname = ipAddressOrHostname ?? throw new ArgumentNullException(nameof(ipAddressOrHostname));
+
+            if (this._isConnected)
+            {
+                return false;
+            }
+
+            this._tcpClient = new System.Net.Sockets.TcpClient();
+
+            this._logger.LogDebug($"{nameof(ConnectAsync)} - Connecting");
+
+            try
+            {
+                var cancellationCompletionSource = new TaskCompletionSource<bool>();
+                using var cts = new CancellationTokenSource(connectTimeoutInMilliseconds);
+
+                var task = this._tcpClient.ConnectAsync(ipAddressOrHostname, port);
+                using (cts.Token.Register(() => cancellationCompletionSource.TrySetResult(true)))
+                {
+                    if (task != await Task.WhenAny(task, cancellationCompletionSource.Task))
+                    {
+                        return false;
+                    }
+                }
             }
             catch (Exception exception)
             {

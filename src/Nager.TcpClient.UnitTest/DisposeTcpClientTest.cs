@@ -14,7 +14,7 @@ namespace Nager.TcpClient.UnitTest
             var mockLoggerTcpClient = LoggerHelper.GetLogger<TcpClient>();
 
             var tcpClient = new TcpClient(logger: mockLoggerTcpClient.Object);
-            tcpClient.Connect(ipAddress, port, connectionTimeoutInMilliseconds: 1000);
+            tcpClient.Connect(ipAddress, port, connectTimeoutInMilliseconds: 1000);
             tcpClient.Disconnect();
             tcpClient.Dispose();
         }
@@ -28,7 +28,7 @@ namespace Nager.TcpClient.UnitTest
             var mockLoggerTcpClient = LoggerHelper.GetLogger<TcpClient>();
 
             var tcpClient = new TcpClient(logger: mockLoggerTcpClient.Object);
-            tcpClient.Connect(ipAddress, port, connectionTimeoutInMilliseconds: 1000);
+            tcpClient.Connect(ipAddress, port, connectTimeoutInMilliseconds: 1000);
 
             tcpClient.Disconnect();
             tcpClient.Disconnect();
