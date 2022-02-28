@@ -9,7 +9,7 @@ A simple **TcpClient** with asynchronous connect logic. Received data packets ar
 
 ## How can I use it?
 
-The package is available on [nuget](https://www.nuget.org/packages/Nager.TcpClient)
+The package is available via [NuGet](https://www.nuget.org/packages/Nager.TcpClient)
 ```
 PM> install-package Nager.TcpClient
 ```
