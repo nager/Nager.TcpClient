@@ -314,12 +314,12 @@ namespace Nager.TcpClient
         /// </summary>
         /// <param name="ipAddressOrHostname"></param>
         /// <param name="port"></param>
-        /// <param name="connectTimeoutInMilliseconds">default: 2s</param>
+        /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public async Task<bool> ConnectAsync(
             string ipAddressOrHostname,
             int port,
-            int connectTimeoutInMilliseconds = 2000
+            CancellationToken cancellationToken = default
             )
         {
             ipAddressOrHostname = ipAddressOrHostname ?? throw new ArgumentNullException(nameof(ipAddressOrHostname));
@@ -336,16 +336,25 @@ namespace Nager.TcpClient
             try
             {
                 var cancellationCompletionSource = new TaskCompletionSource<bool>();
-                using var cts = new CancellationTokenSource(connectTimeoutInMilliseconds);
 
                 var task = this._tcpClient.ConnectAsync(ipAddressOrHostname, port);
-                using (cts.Token.Register(() => cancellationCompletionSource.TrySetResult(true)))
+                using (cancellationToken.Register(() => cancellationCompletionSource.TrySetResult(true)))
                 {
                     if (task != await Task.WhenAny(task, cancellationCompletionSource.Task))
                     {
+                        this._logger.LogTrace($"{nameof(ConnectAsync)} - Cancel via cancellationToken");
                         return false;
                     }
                 }
+
+                if (task.Status == TaskStatus.Faulted)
+                {
+                    var exception = new Exception("Task faulted", task.Exception);
+                    this._logger.LogError(exception, $"{nameof(ConnectAsync)} - Task has faulted state {exception}");
+                    return false;
+                }
+
+                this._logger.LogTrace($"{nameof(ConnectAsync)} - {task.Exception} {task.Status}");
             }
             catch (Exception exception)
             {
