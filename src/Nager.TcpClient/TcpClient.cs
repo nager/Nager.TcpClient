@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace Nager.TcpClient
 {
     /// <summary>
-    /// An easy tcp client
+    /// A simple TcpClient
     /// </summary>
     public class TcpClient : IDisposable
     {
@@ -164,7 +164,11 @@ namespace Nager.TcpClient
 
             if (this._keepAliveConfig != null)
             {
-                if (!this._tcpClient.SetKeepAlive(this._keepAliveConfig.KeepAliveTime, this._keepAliveConfig.KeepAliveInterval, this._keepAliveConfig.KeepAliveRetryCount))
+                if (this._tcpClient.SetKeepAlive(this._keepAliveConfig.KeepAliveTime, this._keepAliveConfig.KeepAliveInterval, this._keepAliveConfig.KeepAliveRetryCount))
+                {
+                    this._logger.LogTrace($"{nameof(PrepareStream)} - Set KeepAlive config");
+                }
+                else
                 {
                     this._logger.LogError($"{nameof(PrepareStream)} - Cannot set KeepAlive config");
                 }
@@ -483,7 +487,11 @@ namespace Nager.TcpClient
                             .ContinueWith(task => { }, CancellationToken.None)
                             .ConfigureAwait(false);
 
-                            return true;
+                            //In this situation, the Docker Container tcp conncection is in a bad state
+                            //infinite loop
+
+                            this.SwitchToDisconnected();
+                            return false;
                         }
 
                         this.DataReceived?.Invoke(data);
@@ -521,6 +529,7 @@ namespace Nager.TcpClient
             if (!this._stream.CanRead)
             {
                 this._logger.LogError($"{nameof(DataReadAsync)} - CanRead is false");
+                return Array.Empty<byte>();
             }
 
             try
@@ -530,6 +539,11 @@ namespace Nager.TcpClient
                 this._logger.LogTrace($"{nameof(DataReadAsync)} - Read data... (AsMemory)");
 
                 var numberOfBytesToRead = await this._stream.ReadAsync(this._receiveBuffer.AsMemory(0, this._receiveBuffer.Length), cancellationToken).ConfigureAwait(false);
+                if (numberOfBytesToRead == 0)
+                {
+                    return Array.Empty<byte>();
+                }
+
                 this._logger.LogTrace($"{nameof(DataReadAsync)} - NumberOfBytesToRead:{numberOfBytesToRead}");
                 using var memoryStream = new MemoryStream();
                 await memoryStream.WriteAsync(this._receiveBuffer.AsMemory(0, numberOfBytesToRead), cancellationToken).ConfigureAwait(false);
@@ -540,6 +554,11 @@ namespace Nager.TcpClient
                 this._logger.LogTrace($"{nameof(DataReadAsync)} - Read data... (ByteArray)");
 
                 var numberOfBytesToRead = await this._stream.ReadAsync(this._receiveBuffer, 0, this._receiveBuffer.Length, cancellationToken).ConfigureAwait(false);
+                if (numberOfBytesToRead == 0)
+                {
+                    return Array.Empty<byte>();
+                }
+
                 this._logger.LogTrace($"{nameof(DataReadAsync)} - NumberOfBytesToRead:{numberOfBytesToRead}");
                 using var memoryStream = new MemoryStream();
                 await memoryStream.WriteAsync(this._receiveBuffer, 0, numberOfBytesToRead, cancellationToken).ConfigureAwait(false);
