@@ -511,7 +511,7 @@ namespace Nager.TcpClient
 
                 if (!readTaskSuccessful)
                 {
-                    return;
+                    break;
                 }
             }
 
