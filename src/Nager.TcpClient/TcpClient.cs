@@ -28,7 +28,7 @@ namespace Nager.TcpClient
         /// <summary>
         /// Is client connected
         /// </summary>
-        public bool IsConnected {  get { return _isConnected; } }
+        public bool IsConnected { get { return _isConnected; } }
 
         /// <summary>
         /// Event to call when the connection is established.
@@ -472,6 +472,8 @@ namespace Nager.TcpClient
 
                         if (task.IsFaulted)
                         {
+                            this._logger.LogWarning($"{nameof(DataReceiverAsync)} - Faulted");
+
                             this.SwitchToDisconnected();
                             return false;
                         }
@@ -480,7 +482,7 @@ namespace Nager.TcpClient
 
                         if (data == null || data.Length == 0)
                         {
-                            this._logger.LogTrace($"{nameof(DataReceiverAsync)} - No data received");
+                            this._logger.LogInformation($"{nameof(DataReceiverAsync)} - No data received");
 
                             await Task
                             .Delay(defaultTimeout, cancellationToken)
@@ -491,10 +493,17 @@ namespace Nager.TcpClient
                             //infinite loop
 
                             this.SwitchToDisconnected();
-                            return false;
+                            return true;
                         }
 
-                        this.DataReceived?.Invoke(data);
+                        if (this.DataReceived != null)
+                        {
+                            this.DataReceived?.Invoke(data);
+                        }
+                        else
+                        {
+                            this._logger.LogTrace($"{nameof(DataReceiverAsync)} - No one has subscribed to the event");
+                        }
 
                         return true;
                     }, cancellationToken)
@@ -528,7 +537,7 @@ namespace Nager.TcpClient
 
             if (!this._stream.CanRead)
             {
-                this._logger.LogError($"{nameof(DataReadAsync)} - CanRead is false");
+                this._logger.LogError($"{nameof(DataReadAsync)} - Stream CanRead is false");
                 return Array.Empty<byte>();
             }
 
