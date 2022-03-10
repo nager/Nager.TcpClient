@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using System;
 using System.IO;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -472,6 +473,12 @@ namespace Nager.TcpClient
 
                         if (task.IsFaulted)
                         {
+                            if (this.IsKnownException(task.Exception))
+                            {
+                                this.SwitchToDisconnected();
+                                return true;
+                            }
+
                             this._logger.LogWarning($"{nameof(DataReceiverAsync)} - Faulted");
 
                             this.SwitchToDisconnected();
@@ -525,6 +532,35 @@ namespace Nager.TcpClient
             }
 
             this._logger.LogInformation($"{nameof(DataReceiverAsync)} - Stopped");
+        }
+
+        private bool IsKnownException(Exception exception)
+        {
+            if (exception is AggregateException aggregateException)
+            {
+                if (aggregateException.InnerException is IOException ioException)
+                {
+                    if (ioException.InnerException is SocketException socketException)
+                    {
+                        // Network cable unplugged at endpoint
+                        if (socketException.SocketErrorCode == SocketError.TimedOut)
+                        {
+                            return true;
+                        }
+
+                        if (socketException.SocketErrorCode == SocketError.ConnectionReset)
+                        {
+                            return true;
+                        }
+
+                        this._logger.LogInformation($"{nameof(IsKnownException)} - SocketErrorCode:{socketException.SocketErrorCode}");
+                    }
+                }
+            }
+
+            this._logger.LogError(exception, nameof(IsKnownException));
+
+            return false;
         }
 
         private async Task<byte[]> DataReadAsync(CancellationToken cancellationToken)
