@@ -29,7 +29,7 @@ using var cancellationTokenSource = new CancellationTokenSource(1000);
 
 using var tcpClient = new TcpClient();
 tcpClient.DataReceived += OnDataReceived;
-tcpClient.ConnectAsync("tcpbin.com", 4242, cancellationTokenSource.Token);
+await tcpClient.ConnectAsync("tcpbin.com", 4242, cancellationTokenSource.Token);
 await tcpClient.SendAsync(new byte[] { 0x01, 0x0A });
 await Task.Delay(400);
 tcpClient.Disconnect();
