@@ -132,11 +132,10 @@ namespace Nager.TcpClient
             {
                 if (this._stream.CanWrite || this._stream.CanRead || this._stream.CanSeek)
                 {
-                    this._logger.LogTrace($"{nameof(DisposeTcpClientAndStream)} - Dispose stream");
-
                     this._stream?.Close();
                 }
 
+                this._logger.LogTrace($"{nameof(DisposeTcpClientAndStream)} - Dispose stream");
                 this._stream?.Dispose();
             }
 
