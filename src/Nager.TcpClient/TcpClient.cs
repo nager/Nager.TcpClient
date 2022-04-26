@@ -200,7 +200,12 @@ namespace Nager.TcpClient
                     return false;
                 }
 
-                this._isConnected = false;
+                if (this._tcpClient != null && this._tcpClient.Connected)
+                {
+                    this._tcpClient.Close();
+                }
+
+                this._isConnected = false;                
                 this.Disconnected?.Invoke();
 
                 return true;
