@@ -2,9 +2,6 @@
 
 A simple **TcpClient** with asynchronous connect logic. Received data packets are available via a `DataReceived` event. There are also events for `Connected` and `Disconnected`. Additionally there is the possibility to enable `TcpKeepAlive`. The library offers the possibility to pass an `ILogger` for logging. There are extensive tests for all major operating systems (ubuntu, windows, macos).
 
-<br>
-<br>
-
 ## Examples of use
 
 For the examples, an online service `tcpbin.com` is used that returns all sent packages. 
