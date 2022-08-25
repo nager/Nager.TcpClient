@@ -546,13 +546,19 @@ namespace Nager.TcpClient
                 {
                     if (ioException.InnerException is SocketException socketException)
                     {
-                        // Network cable unplugged at endpoint
+                        // Target device, network cable unplugged
                         if (socketException.SocketErrorCode == SocketError.TimedOut)
                         {
                             return true;
                         }
 
                         if (socketException.SocketErrorCode == SocketError.ConnectionReset)
+                        {
+                            return true;
+                        }
+
+                        // Target device is restarted
+                        if (socketException.SocketErrorCode == SocketError.OperationAborted)
                         {
                             return true;
                         }
