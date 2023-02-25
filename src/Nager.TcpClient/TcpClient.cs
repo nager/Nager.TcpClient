@@ -18,11 +18,13 @@ namespace Nager.TcpClient
         private readonly CancellationTokenRegistration _streamCancellationTokenRegistration;
         private readonly Task _dataReceiverTask;
         private readonly TcpClientKeepAliveConfig? _keepAliveConfig;
-        private readonly object _syncLock = new object();
+        private readonly object _connectSyncLock = new object();
+        private readonly object _switchStateSyncLock = new object();
 
         private readonly byte[] _receiveBuffer;
 
         private System.Net.Sockets.TcpClient? _tcpClient;
+        private bool _tcpClientInitialized;
         private Stream? _stream;
         private bool _isConnected;
 
@@ -113,9 +115,12 @@ namespace Nager.TcpClient
                     this._cancellationTokenSource.Dispose();
                 }
 
-                if (this._dataReceiverTask.Status == TaskStatus.Running)
+                if (this._dataReceiverTask != null)
                 {
-                    this._dataReceiverTask.Wait(50);
+                    if (this._dataReceiverTask.Status == TaskStatus.Running)
+                    {
+                        this._dataReceiverTask.Wait(50);
+                    }
                 }
 
                 this._streamCancellationTokenRegistration.Dispose();
@@ -139,16 +144,21 @@ namespace Nager.TcpClient
                 this._stream?.Dispose();
             }
 
-            if (this._tcpClient != null)
+            if (this._tcpClientInitialized)
             {
-                if (this._tcpClient.Connected)
+                if (this._tcpClient != null)
                 {
-                    this._logger.LogTrace($"{nameof(DisposeTcpClientAndStream)} - Close TcpClient");
-                    this._tcpClient.Close();
+                    if (this._tcpClient.Connected)
+                    {
+                        this._logger.LogTrace($"{nameof(DisposeTcpClientAndStream)} - Close TcpClient");
+                        this._tcpClient.Close();
+                    }
+
+                    this._logger.LogTrace($"{nameof(DisposeTcpClientAndStream)} - Dispose TcpClient");
+                    this._tcpClient.Dispose();
                 }
 
-                this._logger.LogTrace($"{nameof(DisposeTcpClientAndStream)} - Dispose TcpClient");
-                this._tcpClient.Dispose();
+                this._tcpClientInitialized = false;
             }
         }
 
@@ -177,7 +187,7 @@ namespace Nager.TcpClient
 
         private bool SwitchToConnected()
         {
-            lock (this._syncLock)
+            lock (this._switchStateSyncLock)
             {
                 if (this._isConnected)
                 {
@@ -193,7 +203,7 @@ namespace Nager.TcpClient
 
         private bool SwitchToDisconnected()
         {
-            lock (this._syncLock)
+            lock (this._switchStateSyncLock)
             {
                 if (!this._isConnected)
                 {
@@ -230,45 +240,64 @@ namespace Nager.TcpClient
                 return false;
             }
 
-            try
+            if (this._tcpClientInitialized)
             {
-                this._tcpClient = new System.Net.Sockets.TcpClient();
+                return false;
+            }
 
-                this._logger.LogDebug($"{nameof(Connect)} - Connecting");
-                IAsyncResult asyncResult = this._tcpClient.BeginConnect(ipAddressOrHostname, port, null, null);
-                var waitHandle = asyncResult.AsyncWaitHandle;
-
-                if (!asyncResult.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(connectTimeoutInMilliseconds), exitContext: false))
+            lock (this._connectSyncLock)
+            {
+                if (this._tcpClientInitialized)
                 {
-                    this._logger.LogError($"{nameof(Connect)} - Timeout reached");
-
-                    /*
-                     * INFO
-                     * Do not include a dispose for the waitHandle here this will cause an exception
-                    */
-
-                    this._tcpClient.Close();
-                    this._tcpClient.Dispose();
-
                     return false;
                 }
 
-                this._tcpClient.EndConnect(asyncResult);
+                this._tcpClientInitialized = true;
 
-                waitHandle.Close();
-                waitHandle.Dispose();
+                try
+                {
+                    this._tcpClient = new System.Net.Sockets.TcpClient();
 
-                this._logger.LogInformation($"{nameof(Connect)} - Connected");
-                this.SwitchToConnected();
+                    this._logger.LogDebug($"{nameof(Connect)} - Connecting");
+                    IAsyncResult asyncResult = this._tcpClient.BeginConnect(ipAddressOrHostname, port, null, null);
+                    var waitHandle = asyncResult.AsyncWaitHandle;
 
-                this.PrepareStream();
+                    //Try connect with timeout
+                    if (!asyncResult.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(connectTimeoutInMilliseconds), exitContext: false))
+                    {
+                        this._logger.LogError($"{nameof(Connect)} - Timeout reached");
 
-                return true;
-            }
-            catch (Exception exception)
-            {
-                this._logger.LogError(exception, $"{nameof(Connect)}");
-                this._tcpClient?.Dispose();
+                        /*
+                         * INFO
+                         * Do not include a dispose for the waitHandle here this will cause an exception
+                        */
+
+                        this._tcpClient.Close();
+
+                        this._tcpClientInitialized = false;
+                        this._tcpClient.Dispose();
+
+                        return false;
+                    }
+
+                    this._tcpClient.EndConnect(asyncResult);
+
+                    waitHandle.Close();
+                    waitHandle.Dispose();
+
+                    this._logger.LogInformation($"{nameof(Connect)} - Connected");
+                    this.SwitchToConnected();
+
+                    this.PrepareStream();
+
+                    return true;
+                }
+                catch (Exception exception)
+                {
+                    this._logger.LogError(exception, $"{nameof(Connect)}");
+                    this._tcpClientInitialized = false;
+                    this._tcpClient?.Dispose();
+                }
             }
 
             return false;
