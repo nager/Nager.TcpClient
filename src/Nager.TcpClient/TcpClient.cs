@@ -285,10 +285,10 @@ namespace Nager.TcpClient
                     waitHandle.Close();
                     waitHandle.Dispose();
 
+                    this.PrepareStream();
+
                     this._logger.LogInformation($"{nameof(Connect)} - Connected");
                     this.SwitchToConnected();
-
-                    this.PrepareStream();
 
                     return true;
                 }
@@ -338,10 +338,11 @@ namespace Nager.TcpClient
                 return false;
             }
 
+            this.PrepareStream();
+
             this._logger.LogInformation($"{nameof(ConnectAsync)} - Connected");
             this.SwitchToConnected();
-
-            this.PrepareStream();
+            
             return true;
         }
 
@@ -400,10 +401,11 @@ namespace Nager.TcpClient
                 return false;
             }
 
+            this.PrepareStream();
+
             this._logger.LogInformation($"{nameof(ConnectAsync)} - Connected");
             this.SwitchToConnected();
 
-            this.PrepareStream();
             return true;
         }
 
@@ -431,6 +433,7 @@ namespace Nager.TcpClient
         {
             if (this._stream == null)
             {
+                this._logger.LogError($"{nameof(SendAsync)} - Stream is null");
                 return;
             }
 
