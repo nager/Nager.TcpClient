@@ -11,13 +11,16 @@ on:
     - 'src/**'
     branches: [ main ]
 
+#permissions:
+#  statuses: write
+#  checks: write
+#  contents: write
+#  pull-requests: write
+
 jobs:
   build:
 
     runs-on: ${{ matrix.os }}
-
-    permissions:
-      checks: write
 
     strategy:
       matrix:
