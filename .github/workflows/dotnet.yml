@@ -12,6 +12,7 @@ on:
     branches: [ main ]
 
 permissions:
+  statuses: write
   checks: write
   contents: write
   pull-requests: write
