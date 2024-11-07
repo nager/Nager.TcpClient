@@ -580,8 +580,13 @@ namespace Nager.TcpClient
             this._logger.LogInformation($"{nameof(DataReceiverAsync)} - Stopped");
         }
 
-        private bool IsKnownException(Exception exception)
+        private bool IsKnownException(Exception? exception)
         {
+            if (exception == null)
+            {
+                return false;
+            }
+
             if (exception is AggregateException aggregateException)
             {
                 if (aggregateException.InnerException is IOException ioException)

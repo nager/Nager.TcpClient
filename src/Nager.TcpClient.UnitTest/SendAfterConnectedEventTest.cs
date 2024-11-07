@@ -31,7 +31,7 @@ namespace Nager.TcpClient.UnitTest
                 x => x.Log(
                     LogLevel.Debug,
                     It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>((o, t) => o.ToString().Contains("SendAsync")),
+                    It.Is<It.IsAnyType>((o, t) => (o.ToString() ?? string.Empty).Contains("SendAsync")),
                     It.IsAny<Exception>(),
                     It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
                 Times.Once);
@@ -52,7 +52,7 @@ namespace Nager.TcpClient.UnitTest
                 x => x.Log(
                     LogLevel.Debug,
                     It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>((o, t) => o.ToString().Contains("SendAsync")),
+                    It.Is<It.IsAnyType>((o, t) => (o.ToString() ?? string.Empty).Contains("SendAsync")),
                     It.IsAny<Exception>(),
                     It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
                 Times.Once);
