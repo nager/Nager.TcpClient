@@ -50,14 +50,18 @@ namespace Nager.TcpClient.UnitTest
             var port = 4242;
 
             var isDataReceived = false;
+            using var cancellationTokenSource = new CancellationTokenSource();
 
             var testChars = new char[] { 'A', 'b', 'C', 'D', 'E', '0', '1', 'X', 'Y', 'z' };
-            var testDataLength = 2000;
+            var testDataLength = 1000;
+            var dataFragementCount = 3;
             var receiveBuffer = new List<byte>();
+
+            var expectedReceiveDataLength = (testDataLength + 1) * testChars.Length; // 1 = newline character
 
             var clientConfig = new TcpClientConfig
             {
-                ReceiveBufferSize = testDataLength / 7
+                ReceiveBufferSize = testDataLength / dataFragementCount
             };
 
             void OnDataReceived(byte[] receivedData)
@@ -65,7 +69,12 @@ namespace Nager.TcpClient.UnitTest
                 receiveBuffer.AddRange(receivedData);
 
                 isDataReceived = true;
-                Trace.WriteLine($"ReceivedData: {BitConverter.ToString(receivedData)}");
+                Trace.WriteLine($"{DateTime.Now:HH:mm:ss.fff} - ReceivedData: {BitConverter.ToString(receivedData)}");
+
+                if (receiveBuffer.Count >= expectedReceiveDataLength)
+                {
+                    cancellationTokenSource.Cancel();
+                }
             }
 
             var mockLoggerTcpClient = LoggerHelper.GetLogger<TcpClient>();
@@ -75,7 +84,7 @@ namespace Nager.TcpClient.UnitTest
             tcpClient.Connect(ipAddress, port, 1000);
 
             var tasks = new List<Task>();
-            var barrier = new Barrier(testChars.Length);
+            using var barrier = new Barrier(testChars.Length);
 
             for (var i = 0; i < testChars.Length; i++)
             {
@@ -96,7 +105,7 @@ namespace Nager.TcpClient.UnitTest
             await Task.WhenAll(tasks);
 
             //Wait for response of echo server
-            await Task.Delay(1000);
+            await Task.Delay(15000, cancellationTokenSource.Token).ContinueWith(task => { });
 
             tcpClient.Disconnect();
             tcpClient.DataReceived -= OnDataReceived;

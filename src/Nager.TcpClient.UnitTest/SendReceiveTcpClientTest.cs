@@ -61,9 +61,11 @@ namespace Nager.TcpClient.UnitTest
             var data = Encoding.UTF8.GetBytes("ping\n");
             var receiveBuffer = new List<byte>();
 
+            var dataPackagesReceived = 0;
             void OnDataReceived(byte[] receivedData)
             {
                 receiveBuffer.AddRange(receivedData);
+                dataPackagesReceived++;
             }
 
             var mockLoggerTcpClient = LoggerHelper.GetLogger<TcpClient>();
@@ -72,12 +74,15 @@ namespace Nager.TcpClient.UnitTest
             tcpClient.DataReceived += OnDataReceived;
             tcpClient.Connect(ipAddress, port, 1000);
             await tcpClient.SendAsync(data);
-            await Task.Delay(400);
+            await Task.Delay(2000);
             tcpClient.Disconnect();
             tcpClient.DataReceived -= OnDataReceived;
 
+            var expectedDataPackages = (int)Math.Ceiling((double)data.Length / config.ReceiveBufferSize);
             var isReceivedDataValid = Enumerable.SequenceEqual(receiveBuffer, data);
+
             Assert.IsTrue(isReceivedDataValid, "Invalid data received");
+            Assert.AreEqual(expectedDataPackages, dataPackagesReceived);
         }
 
         [TestMethod]

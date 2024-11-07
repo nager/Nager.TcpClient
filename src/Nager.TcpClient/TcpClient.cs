@@ -14,6 +14,8 @@ namespace Nager.TcpClient
     public class TcpClient : IDisposable
     {
         private readonly ILogger<TcpClient> _logger;
+        private readonly TcpClientConfig _tcpClientConfig;
+
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly CancellationTokenRegistration _streamCancellationTokenRegistration;
         private readonly Task _dataReceiverTask;
@@ -67,13 +69,9 @@ namespace Nager.TcpClient
                 clientConfig = new TcpClientConfig();
             }
 
+            this._tcpClientConfig = clientConfig;
             this._receiveBuffer = new byte[clientConfig.ReceiveBufferSize];
-
-            if (logger == default)
-            {
-                logger = new NullLogger<TcpClient>();
-            }
-            this._logger = logger;
+            this._logger = logger ?? new NullLogger<TcpClient>();
 
             this._streamCancellationTokenRegistration = this._cancellationTokenSource.Token.Register(() =>
             {
@@ -222,6 +220,18 @@ namespace Nager.TcpClient
             }
         }
 
+        private System.Net.Sockets.TcpClient CreateTcpClient()
+        {
+            return new System.Net.Sockets.TcpClient
+            {
+                ReceiveBufferSize = this._tcpClientConfig.ReceiveBufferSize,
+                ReceiveTimeout = this._tcpClientConfig.ReceiveTimeout,
+                SendBufferSize = this._tcpClientConfig.SendBufferSize,
+                SendTimeout = this._tcpClientConfig.SendTimeout,
+                NoDelay = this._tcpClientConfig.NoDelay
+            };
+        }
+
         /// <summary>
         /// Connect
         /// </summary>
@@ -256,7 +266,7 @@ namespace Nager.TcpClient
 
                 try
                 {
-                    this._tcpClient = new System.Net.Sockets.TcpClient();
+                    this._tcpClient = this.CreateTcpClient();
 
                     this._logger.LogDebug($"{nameof(Connect)} - Connecting");
                     IAsyncResult asyncResult = this._tcpClient.BeginConnect(ipAddressOrHostname, port, null, null);
@@ -324,7 +334,7 @@ namespace Nager.TcpClient
                 return false;
             }
 
-            this._tcpClient = new System.Net.Sockets.TcpClient();
+            this._tcpClient = this.CreateTcpClient();
 
             this._logger.LogDebug($"{nameof(ConnectAsync)} - Connecting");
 
@@ -368,7 +378,7 @@ namespace Nager.TcpClient
                 return false;
             }
 
-            this._tcpClient = new System.Net.Sockets.TcpClient();
+            this._tcpClient = this.CreateTcpClient();
 
             this._logger.LogDebug($"{nameof(ConnectAsync)} - Connecting");
 
@@ -474,7 +484,7 @@ namespace Nager.TcpClient
                 if (!this._tcpClient.Connected)
                 {
                     this.SwitchToDisconnected();
-                    this._logger.LogTrace($"{nameof(DataReceiverAsync)} - Client not connected");
+                    this._logger.LogTrace($"{nameof(DataReceiverAsync)} - TcpClient not connected");
 
                     await Task
                         .Delay(defaultTimeout, cancellationToken)
@@ -610,13 +620,13 @@ namespace Nager.TcpClient
             if (this._stream == null)
             {
                 this._logger.LogError($"{nameof(DataReadAsync)} - Stream is null");
-                return Array.Empty<byte>();
+                return [];
             }
 
             if (!this._stream.CanRead)
             {
                 this._logger.LogError($"{nameof(DataReadAsync)} - Stream CanRead is false");
-                return Array.Empty<byte>();
+                return [];
             }
 
             try
@@ -628,7 +638,7 @@ namespace Nager.TcpClient
                 var numberOfBytesToRead = await this._stream.ReadAsync(this._receiveBuffer.AsMemory(0, this._receiveBuffer.Length), cancellationToken).ConfigureAwait(false);
                 if (numberOfBytesToRead == 0)
                 {
-                    return Array.Empty<byte>();
+                    return [];
                 }
 
                 this._logger.LogTrace($"{nameof(DataReadAsync)} - NumberOfBytesToRead:{numberOfBytesToRead}");
@@ -643,7 +653,7 @@ namespace Nager.TcpClient
                 var numberOfBytesToRead = await this._stream.ReadAsync(this._receiveBuffer, 0, this._receiveBuffer.Length, cancellationToken).ConfigureAwait(false);
                 if (numberOfBytesToRead == 0)
                 {
-                    return Array.Empty<byte>();
+                    return [];
                 }
 
                 this._logger.LogTrace($"{nameof(DataReadAsync)} - NumberOfBytesToRead:{numberOfBytesToRead}");
@@ -667,7 +677,7 @@ namespace Nager.TcpClient
                 throw;
             }
 
-            return Array.Empty<byte>();
+            return [];
         }
     }
 }
