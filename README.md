@@ -2,10 +2,22 @@
 
 <img src="https://raw.githubusercontent.com/nager/Nager.TcpClient/main/doc/icon.png" width="150" title="Nager TcpClient" alt="Nager TcpClient" align="left">
 
-A simple **TcpClient** with asynchronous connect logic. Received data packets are available via a `DataReceived` event. There are also events for `Connected` and `Disconnected`. Additionally there is the possibility to enable `TcpKeepAlive`. The library offers the possibility to pass an `ILogger` for logging. There are extensive tests for all major operating systems (ubuntu, windows, macos).
+A lightweight, asynchronous **TcpClient** with easy-to-use connection handling.
+The client triggers `DataReceived`, `Connected`, and `Disconnected` events, making it simple to manage TCP data flow. Optional `TcpKeepAlive` support is available for persistent connections. Logging is customizable by passing an `ILogger` instance, ensuring robust logging.
 
 <br>
 <br>
+
+## Comprehensive Test Coverage Across Major Operating Systems
+
+The library is thoroughly tested on all major operating systems, including Ubuntu, Windows, and macOS. A total of 14 tests are executed on each platform to ensure consistent functionality and reliability.
+
+| Operating System | Number of Tests |
+|------------------|-----------------|
+| Ubuntu           | 14              |
+| Windows          | 14              |
+| macOS            | 14              |
+
 
 ## How can I use it?
 
