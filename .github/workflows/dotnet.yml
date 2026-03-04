@@ -11,31 +11,24 @@ on:
     - 'src/**'
     branches: [ main ]
 
-#permissions:
-#  statuses: write
-#  checks: write
-#  contents: write
-#  pull-requests: write
-
 jobs:
   build:
 
     runs-on: ${{ matrix.os }}
+
+    permissions:
+      id-token: write
 
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-    - uses: actions/checkout@v5
-    - name: Setup .NET Core 3.1	
-      uses: actions/setup-dotnet@v5
-      with:	
-        dotnet-version: 3.1.x
-    - name: Setup .NET 8
+    - uses: actions/checkout@v6
+    - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: 10.0.x
     - name: Restore dependencies
       working-directory: ./src
       run: dotnet restore
@@ -58,8 +51,13 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: |
         dotnet pack --configuration Release --output $GITHUB_WORKSPACE/out src/Nager.TcpClient/Nager.TcpClient.csproj
+    - name: NuGet login
+      uses: NuGet/login@v1
+      id: login
+      with:
+        user: ${{secrets.NUGET_USER}}
     - name: Push NuGet package
       if: github.event_name != 'pull_request' && matrix.os == 'ubuntu-latest'
       run: |
         cd $GITHUB_WORKSPACE/out
-        dotnet nuget push *.nupkg --source https://www.nuget.org/api/v2/package --api-key ${{secrets.NUGET_TOKEN}} --skip-duplicate --no-symbols
+        dotnet nuget push *.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{steps.login.outputs.NUGET_API_KEY}} --skip-duplicate --no-symbols
