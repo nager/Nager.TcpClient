@@ -40,7 +40,7 @@ jobs:
       run: |
         dotnet test --configuration Release --no-restore --no-build --verbosity normal --logger trx || true
     - name: Test Report
-      uses: dorny/test-reporter@v2
+      uses: dorny/test-reporter@v3
       if: always()
       with:
         name: 'DotNET Tests ${{ matrix.os }}'
