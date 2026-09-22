@@ -75,7 +75,7 @@ namespace Nager.TcpClient
 
             this._streamCancellationTokenRegistration = this._cancellationTokenSource.Token.Register(() =>
             {
-                if (this._stream == null)
+                if (this._stream is null)
                 {
                     return;
                 }
@@ -162,7 +162,7 @@ namespace Nager.TcpClient
 
         private void PrepareStream()
         {
-            if (this._tcpClient == null)
+            if (this._tcpClient is null)
             {
                 this._logger.LogError($"{nameof(PrepareStream)} - TcpClient is null");
                 return;
@@ -441,7 +441,7 @@ namespace Nager.TcpClient
             byte[] data,
             CancellationToken cancellationToken = default)
         {
-            if (this._stream == null)
+            if (this._stream is null)
             {
                 this._logger.LogError($"{nameof(SendAsync)} - Stream is null");
                 return;
@@ -469,7 +469,9 @@ namespace Nager.TcpClient
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                if (this._tcpClient == null)
+                var tcpClient = this._tcpClient;
+
+                if (tcpClient is null)
                 {
                     this._logger.LogTrace($"{nameof(DataReceiverAsync)} - TcpClient not initialized");
 
@@ -481,7 +483,7 @@ namespace Nager.TcpClient
                     continue;
                 }
 
-                if (!this._tcpClient.Connected)
+                if (!tcpClient.Connected)
                 {
                     this.SwitchToDisconnected();
                     this._logger.LogTrace($"{nameof(DataReceiverAsync)} - TcpClient not connected");
@@ -494,7 +496,7 @@ namespace Nager.TcpClient
                     continue;
                 }
 
-                if (this._stream == null)
+                if (this._stream is null)
                 {
                     this._logger.LogTrace($"{nameof(DataReceiverAsync)} - Stream not ready");
 
@@ -508,7 +510,7 @@ namespace Nager.TcpClient
 
                 this._logger.LogTrace($"{nameof(DataReceiverAsync)} - Wait for data...");
 
-                var readTaskSuccessful = await DataReadAsync(cancellationToken)
+                var readTaskSuccessful = await this.DataReadAsync(cancellationToken)
                     .ContinueWith(async task =>
                     {
                         if (task.IsCanceled)
@@ -533,7 +535,7 @@ namespace Nager.TcpClient
 
                         byte[] data = task.Result;
 
-                        if (data == null || data.Length == 0)
+                        if (data is null || data.Length == 0)
                         {
                             this._logger.LogInformation($"{nameof(DataReceiverAsync)} - No data received");
 
@@ -549,7 +551,7 @@ namespace Nager.TcpClient
                             return true;
                         }
 
-                        if (this.DataReceived != null)
+                        if (this.DataReceived is not null)
                         {
                             this.DataReceived?.Invoke(data);
                         }
@@ -582,7 +584,7 @@ namespace Nager.TcpClient
 
         private bool IsKnownException(Exception? exception)
         {
-            if (exception == null)
+            if (exception is null)
             {
                 return false;
             }
@@ -622,7 +624,7 @@ namespace Nager.TcpClient
 
         private async Task<byte[]> DataReadAsync(CancellationToken cancellationToken)
         {
-            if (this._stream == null)
+            if (this._stream is null)
             {
                 this._logger.LogError($"{nameof(DataReadAsync)} - Stream is null");
                 return [];
