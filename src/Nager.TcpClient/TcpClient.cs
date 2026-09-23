@@ -474,12 +474,7 @@ namespace Nager.TcpClient
                 if (tcpClient is null)
                 {
                     this._logger.LogTrace($"{nameof(DataReceiverAsync)} - TcpClient not initialized");
-
-                    await Task
-                        .Delay(defaultTimeout, cancellationToken)
-                        .ContinueWith(task => { }, CancellationToken.None)
-                        .ConfigureAwait(false);
-
+                    await DelaySafelyAsync(defaultTimeout, cancellationToken).ConfigureAwait(false);
                     continue;
                 }
 
@@ -487,99 +482,74 @@ namespace Nager.TcpClient
                 {
                     this.SwitchToDisconnected();
                     this._logger.LogTrace($"{nameof(DataReceiverAsync)} - TcpClient not connected");
-
-                    await Task
-                        .Delay(defaultTimeout, cancellationToken)
-                        .ContinueWith(task => { }, CancellationToken.None)
-                        .ConfigureAwait(false);
-
+                    await DelaySafelyAsync(defaultTimeout, cancellationToken).ConfigureAwait(false);
                     continue;
                 }
 
                 if (this._stream is null)
                 {
                     this._logger.LogTrace($"{nameof(DataReceiverAsync)} - Stream not ready");
-
-                    await Task
-                        .Delay(defaultTimeout, cancellationToken)
-                        .ContinueWith(task => { }, CancellationToken.None)
-                        .ConfigureAwait(false);
-
+                    await DelaySafelyAsync(defaultTimeout, cancellationToken).ConfigureAwait(false);
                     continue;
                 }
 
                 this._logger.LogTrace($"{nameof(DataReceiverAsync)} - Wait for data...");
 
-                var readTaskSuccessful = await this.DataReadAsync(cancellationToken)
-                    .ContinueWith(async task =>
-                    {
-                        if (task.IsCanceled)
-                        {
-                            this._logger.LogTrace($"{nameof(DataReceiverAsync)} - Timeout");
-                            return false;
-                        }
-
-                        if (task.IsFaulted)
-                        {
-                            if (this.IsKnownException(task.Exception))
-                            {
-                                this.SwitchToDisconnected();
-                                return true;
-                            }
-
-                            this._logger.LogWarning($"{nameof(DataReceiverAsync)} - Faulted");
-
-                            this.SwitchToDisconnected();
-                            return false;
-                        }
-
-                        byte[] data = task.Result;
-
-                        if (data is null || data.Length == 0)
-                        {
-                            this._logger.LogInformation($"{nameof(DataReceiverAsync)} - No data received");
-
-                            await Task
-                            .Delay(defaultTimeout, cancellationToken)
-                            .ContinueWith(task => { }, CancellationToken.None)
-                            .ConfigureAwait(false);
-
-                            //In this situation, the Docker Container tcp conncection is in a bad state
-                            //infinite loop
-
-                            this.SwitchToDisconnected();
-                            return true;
-                        }
-
-                        if (this.DataReceived is not null)
-                        {
-                            this.DataReceived?.Invoke(data);
-                        }
-                        else
-                        {
-                            this._logger.LogTrace($"{nameof(DataReceiverAsync)} - No one has subscribed to the event");
-                        }
-
-                        return true;
-                    }, cancellationToken)
-                    .ContinueWith(task =>
-                    {
-                        if (task.IsCanceled)
-                        {
-                            return false;
-                        }
-
-                        return task.Result.Result;
-                    }, CancellationToken.None)
-                    .ConfigureAwait(false);
-
-                if (!readTaskSuccessful)
+                try
                 {
+                    byte[] data = await this.DataReadAsync(cancellationToken).ConfigureAwait(false);
+
+                    if (data is null || data.Length == 0)
+                    {
+                        this._logger.LogInformation($"{nameof(DataReceiverAsync)} - No data received");
+                        await DelaySafelyAsync(defaultTimeout, cancellationToken).ConfigureAwait(false);
+
+                        this.SwitchToDisconnected();
+                        continue;
+                    }
+
+                    if (this.DataReceived is not null)
+                    {
+                        this.DataReceived.Invoke(data);
+                    }
+                    else
+                    {
+                        this._logger.LogTrace($"{nameof(DataReceiverAsync)} - No one has subscribed to the event");
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    this._logger.LogTrace($"{nameof(DataReceiverAsync)} - Timeout/Canceled");
                     break;
+                }
+                catch (Exception exception)
+                {
+                    if (this.IsKnownException(exception))
+                    {
+                        this.SwitchToDisconnected();
+                    }
+                    else
+                    {
+                        this._logger.LogWarning(exception, $"{nameof(DataReceiverAsync)} - Faulted");
+                        this.SwitchToDisconnected();
+                    }
                 }
             }
 
             this._logger.LogInformation($"{nameof(DataReceiverAsync)} - Stopped");
+        }
+
+        private static async Task DelaySafelyAsync(
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                await Task.Delay(timeout, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
         }
 
         private bool IsKnownException(Exception? exception)
