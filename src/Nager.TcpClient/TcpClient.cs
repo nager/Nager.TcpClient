@@ -286,6 +286,7 @@ namespace Nager.TcpClient
 
                         this._tcpClientInitialized = false;
                         this._tcpClient.Dispose();
+                        this._tcpClient = null;
 
                         return false;
                     }
@@ -307,6 +308,7 @@ namespace Nager.TcpClient
                     this._logger.LogError(exception, $"{nameof(Connect)}");
                     this._tcpClientInitialized = false;
                     this._tcpClient?.Dispose();
+                    this._tcpClient = null;
                 }
             }
 
