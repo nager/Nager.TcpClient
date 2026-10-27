@@ -11,6 +11,8 @@ namespace Nager.TcpClient.UnitTest
         {
             var logger = new Mock<ILogger<T>>();
 
+            logger.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+
             logger.Setup(x => x.Log(
                 It.IsAny<LogLevel>(),
                 It.IsAny<EventId>(),
@@ -20,13 +22,13 @@ namespace Nager.TcpClient.UnitTest
                 .Callback(new InvocationAction(invocation =>
                 {
                     var logLevel = (LogLevel)invocation.Arguments[0]; // The first two will always be whatever is specified in the setup above
-                var eventId = (EventId)invocation.Arguments[1];  // so I'm not sure you would ever want to actually use them
-                var state = invocation.Arguments[2];
+                    var eventId = (EventId)invocation.Arguments[1];  // so I'm not sure you would ever want to actually use them
+                    var state = invocation.Arguments[2];
                     var exception = (Exception)invocation.Arguments[3];
                     var formatter = invocation.Arguments[4];
 
                     var invokeMethod = formatter.GetType().GetMethod("Invoke");
-                    var logMessage = (string?)invokeMethod?.Invoke(formatter, new[] { state, exception });
+                    var logMessage = (string?)invokeMethod?.Invoke(formatter, [state, exception]);
 
                     Trace.WriteLine($"{logLevel} - {logMessage}");
                 }));
