@@ -1,6 +1,8 @@
 #if (!NET5_0_OR_GREATER)
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -25,22 +27,28 @@ namespace Nager.TcpClient.UnitTest
         }
 
         [TestMethod]
-        public async Task ConnectAsync_NonRoutableIpAddress_Failure()
+        public async Task ConnectAsync_NonRoutableIpAddress_Cancelled()
         {
             var ipAddress = "10.255.255.1";
             var port = 4242;
+            var connectionTimeoutMilliseconds = 3000;
 
             var mockLoggerTcpClient = LoggerHelper.GetLogger<TcpClient>();
-
             using var tcpClient = new TcpClient(logger: mockLoggerTcpClient.Object);
-            var connectSuccessful = await tcpClient.ConnectAsync(ipAddress, port);
+            using var cancellationTokenSource = new CancellationTokenSource(connectionTimeoutMilliseconds);
 
-            Assert.IsFalse(connectSuccessful, "Connection should not be possible");
+            var sw = Stopwatch.StartNew();
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                () => tcpClient.ConnectAsync(ipAddress, port, cancellationTokenSource.Token));
+            sw.Stop();
+
+            var allowedTolerance = 100; //100ms
+            Assert.IsTrue(sw.Elapsed.TotalMilliseconds > (connectionTimeoutMilliseconds - allowedTolerance), $"Abort to early {sw.Elapsed.TotalMilliseconds}");
             Assert.IsFalse(tcpClient.IsConnected, "IsConnected has wrong state");
         }
 
         [TestMethod]
-        public async Task ConnectAsync_NonRoutableIpAddressWithCancellationTokenTimeout_Failure()
+        public async Task ConnectAsync_NonRoutableIpAddressWithCancellationTokenTimeout_Cancelled()
         {
             var ipAddress = "10.255.255.1";
             var port = 4242;
@@ -50,9 +58,10 @@ namespace Nager.TcpClient.UnitTest
             using var tcpClient = new TcpClient(logger: mockLoggerTcpClient.Object);
 
             using var cancellationTokenSource = new CancellationTokenSource(millisecondsDelay: 1000);
-            var connectSuccessful = await tcpClient.ConnectAsync(ipAddress, port, cancellationTokenSource.Token);
 
-            Assert.IsFalse(connectSuccessful, "Connection should not be possible");
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                () => tcpClient.ConnectAsync(ipAddress, port, cancellationTokenSource.Token));
+
             Assert.IsFalse(tcpClient.IsConnected, "IsConnected has wrong state");
         }
     }
