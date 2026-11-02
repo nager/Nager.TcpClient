@@ -43,7 +43,10 @@ namespace Nager.TcpClient.UnitTest
                 var result = tcpClient.SetKeepAlive(tcpKeepAliveTime: 5, tcpKeepAliveInterval: 2, tcpKeepAliveRetryCount: 3);
 
                 Assert.IsTrue(result);
-                Assert.AreEqual(1, (int)tcpClient.Client.GetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive)!);
+
+                // Linux/Windows return 1, macOS (BSD) returns the option bit (0x0008)
+                var keepAlive = (int)tcpClient.Client.GetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive)!;
+                Assert.AreNotEqual(0, keepAlive, "KeepAlive should be enabled");
             }
             finally
             {
