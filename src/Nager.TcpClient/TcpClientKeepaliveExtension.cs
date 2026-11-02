@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net.Sockets;
 
 namespace Nager.TcpClient
@@ -32,6 +32,33 @@ namespace Nager.TcpClient
                 tcpClient.Client.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveRetryCount, tcpKeepAliveRetryCount);
 
                 return true;
+#elif NETSTANDARD2_0
+
+    var socket = tcpClient.Client;
+
+    socket.SetSocketOption(
+        SocketOptionLevel.Socket,
+        SocketOptionName.KeepAlive,
+        true);
+
+    byte[] config = new byte[12];
+
+    BitConverter.GetBytes((uint)1).CopyTo(config, 0);
+
+    BitConverter.GetBytes(
+        checked((uint)tcpKeepAliveTime * 1000u))
+        .CopyTo(config, 4);
+
+    BitConverter.GetBytes(
+        checked((uint)tcpKeepAliveInterval * 1000u))
+        .CopyTo(config, 8);
+
+    socket.IOControl(
+        IOControlCode.KeepAliveValues,
+        config,
+        null);
+
+    return true;
 #endif
             }
             catch (Exception)
